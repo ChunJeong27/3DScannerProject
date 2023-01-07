@@ -3,11 +3,11 @@
 
 #include <QWidget>
 #include <iostream>
-#include <opencv4/opencv2/imgcodecs.hpp>
-#include <opencv4/opencv2/highgui.hpp>
-#include <opencv4/opencv2/imgproc.hpp>
-#include <opencv4/opencv2/calib3d.hpp>
-#include <opencv4/opencv2/core/mat.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/calib3d.hpp>
+#include <opencv2/core/mat.hpp>
 
 using namespace std;
 using namespace cv;
@@ -36,7 +36,7 @@ private:
     cv::Mat frameL, frameR, grayL, grayR, cornersL, cornersR;
 
     const int CHECKERBOARD[2] = {8,6};
-    cv::Mat cameraMatrix,distCoeffs,R,T;
+    cv::Mat cameraMatrixL, cameraMatrixR, distCoeffsL, distCoeffsR, RL, RR, TL,TR;
 
     bool isCaliStart = false;
     bool isCameraStart = true;

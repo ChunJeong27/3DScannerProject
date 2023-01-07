@@ -186,23 +186,28 @@ void Widget::cameraUpdate()
 void Widget::cameraCalibration()
 {
     // creating vector to store vectors of 3D points
-    vector<vector<Point3f> > objpoints;
+    vector<vector<Point3f> > objpointsL, objpointsR;
 
     // creating vector to store vectors of 2D points
-    vector<vector<Point2f> > imgpoints;
+    vector<vector<Point2f> > imgpointsL, imgpointsR;
 
     // Defining the world coordinates for 3D points
-    vector<Point3f> objp;
+    vector<Point3f> objpL, objpR;
     for(int i{0}; i<CHECKERBOARD[1]; i++)
     {
         for(int j{0}; j<CHECKERBOARD[0]; j++)
-            objp.push_back(Point3f(j,i,0));
+        {
+            objpL.push_back(Point3f(j,i,0));
+            objpR.push_back(Point3f(j,i,0));
+        }
     }
 
-    vector<String> images;
-    string path = "./*.png";
+    vector<String> imagesL, imagesR;
+    string pathL = "./chessboard-L*.png";
+    string pathR = "./chessboard-R*.png";
 
-    glob(path, images);
+    glob(pathL, imagesL);
+    glob(pathR, imagesR);
 
     Mat frame, gray;
     // vector to store the pixel coordinates of detected checker board corners
@@ -210,12 +215,12 @@ void Widget::cameraCalibration()
     bool success;
 
     int cnt = 0;
-    ui->progressBar->setMaximum(images.size());
+    ui->progressBar->setMaximum(imagesL.size());
 
     // Looping over all the images in the directory
-    for(int i{0}; i<images.size(); i++)
+    for(int i{0}; i<imagesL.size(); i++)
     {
-        frame = imread(images[i]);
+        frame = imread(imagesL[i]);
         cvtColor(frame, gray, COLOR_BGR2GRAY);
 
         // Finding checker board corners
@@ -241,13 +246,52 @@ void Widget::cameraCalibration()
             // Displaying the detected corner points on the checker board
             drawChessboardCorners(frame, Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, success);
 
-            objpoints.push_back(objp);
-            imgpoints.push_back(corner_pts);
+            objpointsL.push_back(objpL);
+            imgpointsL.push_back(corner_pts);
         }
 
 //        imshow("Image",frame);
         ui->test1->setPixmap(QPixmap::fromImage(Mat2QImage(frame))
                                     .scaled(ui->test1->size()));
+//        waitKey(0);
+    }
+
+    // Looping over all the images in the directory
+    for(int i{0}; i<imagesR.size(); i++)
+    {
+        frame = imread(imagesR[i]);
+        cvtColor(frame, gray, COLOR_BGR2GRAY);
+
+        // Finding checker board corners
+        // If desired number of corners are found in the image then success = true
+        success = findChessboardCorners(gray, Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts,
+                CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
+
+        /*
+        * If desired number of corner are detected,
+        * we refine the pixel coordinates and display
+        * them on the images of checker board
+        */
+        if(success)
+        {
+            cnt++;
+            ui->progressBar->setValue(cnt);
+
+            TermCriteria criteria(TermCriteria::EPS | TermCriteria::MAX_ITER, 30, 0.001);
+
+            // refining pixel coordinates for given 2d points.
+            cornerSubPix(gray,corner_pts,Size(11,11), Size(-1,-1), criteria);
+
+            // Displaying the detected corner points on the checker board
+            drawChessboardCorners(frame, Size(CHECKERBOARD[0], CHECKERBOARD[1]), corner_pts, success);
+
+            objpointsR.push_back(objpR);
+            imgpointsR.push_back(corner_pts);
+        }
+
+//        imshow("Image",frame);
+        ui->test2->setPixmap(QPixmap::fromImage(Mat2QImage(frame))
+                                    .scaled(ui->test2->size()));
 //        waitKey(0);
     }
 
@@ -259,32 +303,40 @@ void Widget::cameraCalibration()
     * and corresponding pixel coordinates of the
     * detected corners (imgpoints)
     */
-    double rms = calibrateCamera(objpoints, imgpoints, Size(gray.rows,gray.cols), cameraMatrix, distCoeffs, R, T);
+    double rmsL = calibrateCamera(objpointsL, imgpointsL, Size(gray.rows,gray.cols), cameraMatrixL, distCoeffsL, RL, TL);
 qDebug("hi");
-    cout << "cameraMatrix : " << cameraMatrix << endl;
-    cout << "distCoeffs : " << distCoeffs << endl;
-    cout << "Rotation vector : " << R << endl;
-    cout << "Translation vector : " << T << endl;
-    cout << "RMS : " << rms << endl;
+    cout << "cameraMatrix : " << cameraMatrixL << endl;
+    cout << "distCoeffs : " << distCoeffsL << endl;
+    cout << "Rotation vector : " << RL << endl;
+    cout << "Translation vector : " << TL << endl;
+    cout << "RMS : " << rmsL << endl;
+
+    double rmsR = calibrateCamera(objpointsR, imgpointsR, Size(gray.rows,gray.cols), cameraMatrixR, distCoeffsR, RR, TR);
+qDebug("hi");
+    cout << "cameraMatrix : " << cameraMatrixR << endl;
+    cout << "distCoeffs : " << distCoeffsR << endl;
+    cout << "Rotation vector : " << RR << endl;
+    cout << "Translation vector : " << TR << endl;
+    cout << "RMS : " << rmsR << endl;
 
 
-    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrix.at<double>(0, 0))+", ");
-    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrix.at<double>(0, 1))+", ");
-    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrix.at<double>(0, 2))+", ");
-    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrix.at<double>(1, 0))+", ");
-    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrix.at<double>(1, 1))+", ");
-    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrix.at<double>(1, 2))+", ");
-    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrix.at<double>(2, 0))+", ");
-    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrix.at<double>(2, 1))+", ");
-    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrix.at<double>(2, 2)));
+    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrixL.at<double>(0, 0))+", ");
+    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrixL.at<double>(0, 1))+", ");
+    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrixL.at<double>(0, 2))+", ");
+    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrixL.at<double>(1, 0))+", ");
+    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrixL.at<double>(1, 1))+", ");
+    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrixL.at<double>(1, 2))+", ");
+    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrixL.at<double>(2, 0))+", ");
+    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrixL.at<double>(2, 1))+", ");
+    ui->matrixPlainTextEdit->appendPlainText(QString::number(cameraMatrixL.at<double>(2, 2)));
 
-    ui->coeffisPlainTextEdit->appendPlainText(QString::number(distCoeffs.at<double>(0)));
-    ui->coeffisPlainTextEdit->appendPlainText(QString::number(distCoeffs.at<double>(1)));
-    ui->coeffisPlainTextEdit->appendPlainText(QString::number(distCoeffs.at<double>(2)));
-    ui->coeffisPlainTextEdit->appendPlainText(QString::number(distCoeffs.at<double>(3)));
-    ui->coeffisPlainTextEdit->appendPlainText(QString::number(distCoeffs.at<double>(4)));
+    ui->coeffisPlainTextEdit->appendPlainText(QString::number(distCoeffsL.at<double>(0)));
+    ui->coeffisPlainTextEdit->appendPlainText(QString::number(distCoeffsL.at<double>(1)));
+    ui->coeffisPlainTextEdit->appendPlainText(QString::number(distCoeffsL.at<double>(2)));
+    ui->coeffisPlainTextEdit->appendPlainText(QString::number(distCoeffsL.at<double>(3)));
+    ui->coeffisPlainTextEdit->appendPlainText(QString::number(distCoeffsL.at<double>(4)));
 
-    ui->rmsLineEdit->setText(QString::number(rms));
+    ui->rmsLineEdit->setText(QString::number(rmsL));
 
 }
 
@@ -312,7 +364,7 @@ void Widget::removeDistortion()
     Mat map1, map2;
     Size imageSize=Size(320,240);
 
-    initUndistortRectifyMap(cameraMatrix, distCoeffs, Mat(), cameraMatrix, imageSize, CV_32FC1, map1, map2);
+    initUndistortRectifyMap(cameraMatrixL, distCoeffsL, Mat(), cameraMatrixL, imageSize, CV_32FC1, map1, map2);
 
     remap(frame1, frame2, map1, map2, INTER_LINEAR);
 
